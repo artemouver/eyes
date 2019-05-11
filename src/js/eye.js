@@ -1,5 +1,5 @@
 export default class Eye {
-  constructor(offsetX, offsetY, sizeX, sizeY, sizeKoef, side, radiusOfSight) {
+  constructor(offsetX, offsetY, sizeX, sizeY, sizeKoef, side, radiusOfSight, eyeSection, pupilDeviation, timeOfWink, wowColor) {
     // const lineWidth = 3,
     //   pupilRadius = 3.5;
 
@@ -14,7 +14,7 @@ export default class Eye {
     this.side = side || 'left';
     this.radiusOfSight = radiusOfSight || 300;
 
-    this.eyeSection = 0.55; // форма выреза глаза. 0.55 - нормальное значение
+    this.eyeSection = eyeSection; // форма выреза глаза. 0.55 - нормальное значение
     this.pupilOffsetX = 0; // сдвиг радужки и зрачка по оси X относительно центра глаза
     this.pupilOffsetY = 0; // сдвиг радужки и зрачка по оси Y относительно центра глаза
 
@@ -24,7 +24,7 @@ export default class Eye {
     this.offsetToCenterX = this.offsetX - this.localCenterX; // реальный сдвиг глаза по оси X (от левого верхнего угла)
     this.offsetToCenterY = this.offsetY - this.localCenterY; // реальный сдвиг глаза по оси Y (от левого верхнего угла)
 
-    const pupilDeviation = 0.7; //0.0..1.0. Отвечает за удалённость зрачка от центра
+    this.pupilDeviation = pupilDeviation; //0.0..1.0. Отвечает за удалённость зрачка от центра
     this.ellipsW = this.sizeX * 0.5 * pupilDeviation; //половина длины овала, который отвечает за путь, по которому движется зрачок
     this.ellipsH = this.sizeY * 0.5 * pupilDeviation; //половина высоты овала, который отвечает за путь, по которому движется зрачок
 
@@ -32,15 +32,18 @@ export default class Eye {
       openingEye: 1.0, // 0.0 - глаз закрыт, 1.0 - глаз открыт
       loweringUpperEyelid: 0, // на сколько опущено верхнее веко или иначе насколько закрыт глаз (в пикселях)
       step: 0, // шаг выполнения моргания (0 - не моргает, 1 - веко опускается, 2 - веко поднимается)
-      time: 0.5 // время одного шага моргания (время опускания века или поднятия)
+      time: timeOfWink / 2 // время одного шага моргания (время опускания века или поднятия)
     };
     this.winkSettings.speed = this.winkSettings.openingEye / this.winkSettings.time; // скорость одного шага моргания
 
+    this.timeChangeColor = 0.5;
     this.wowSettings = {
       isHovered: false,
       step: 0,
-      speed: {x: null, y: null, color: 256 * 2},
-      redness: 0
+      speed: {x: null, y: null, color: [null, null, null]},
+      color: [0, 0, 0],
+      fromColor: [0, 0, 0],
+      toColor: wowColor
     };
 
     this.returning = false;
@@ -158,7 +161,7 @@ export default class Eye {
     ctx.beginPath();
     ctx.arc(this.offsetX + this.pupilOffsetX, this.offsetY + this.pupilOffsetY, this.sizeY * 0.43, 0, 2 * Math.PI);
     ctx.closePath();
-    ctx.fillStyle = `rgba(${Math.floor(this.wowSettings.redness)}, 0, 0, 1)`;
+    ctx.fillStyle = `rgba(${Math.floor(this.wowSettings.color[0])}, ${Math.floor(this.wowSettings.color[1])}, ${Math.floor(this.wowSettings.color[2])}, 1)`;
     ctx.fill();
 
     ctx.restore();
@@ -197,30 +200,41 @@ export default class Eye {
   }
 
   wowing(mouse) {
+    let isFilled = true;
     switch (this.wowSettings.step) {
       case 1:
         let nowOffsets = {x: this.pupilSpeed.x * this.passed / 1000, y: this.pupilSpeed.y * this.passed / 1000};
         if (Math.abs(this.pupilOffsetX - nowOffsets.x) <= Math.abs(nowOffsets.x)) {
           this.pupilSpeed.x = 0;
           this.pupilSpeed.y = 0;
+          for (let i = 0; i < 3; i++)
+            this.wowSettings.speed.color[i] = (this.wowSettings.toColor[i] - this.wowSettings.fromColor[i]) / this.timeChangeColor;
           this.wowSettings.step = 2;
         }
         break;
       case 2:
-        this.wowSettings.redness += this.wowSettings.speed.color * this.passed / 1000;
-        if (this.wowSettings.redness >= 255) {
-          this.wowSettings.redness = 255;
-          this.wowSettings.step = 3;
+        for (let i = 0; i < 3; i++) {
+          this.wowSettings.color[i] += this.wowSettings.speed.color[i] * this.passed / 1000;
+          if (this.wowSettings.speed.color[i] >= 0 && this.wowSettings.color[i] >= this.wowSettings.toColor[i] || this.wowSettings.speed.color[i] < 0 && this.wowSettings.color[i] <= this.wowSettings.toColor[i])
+            this.wowSettings.color[i] = this.wowSettings.toColor[i];
+          else
+            isFilled = false;
         }
+        if (isFilled)
+          this.wowSettings.step = 3;
         break;
       case 3:
         break;
       case 4:
-        this.wowSettings.redness -= this.wowSettings.speed.color * this.passed / 1000;
-        if (this.wowSettings.redness <= 0) {
-          this.wowSettings.redness = 0;
-          this.wowSettings.step = 5;
+        for (let i = 0; i < 3; i++) {
+          this.wowSettings.color[i] += this.wowSettings.speed.color[i] * this.passed / 1000;
+          if (this.wowSettings.speed.color[i] >= 0 && this.wowSettings.color[i] >= this.wowSettings.fromColor[i] || this.wowSettings.speed.color[i] < 0 && this.wowSettings.color[i] <= this.wowSettings.fromColor[i])
+            this.wowSettings.color[i] = this.wowSettings.fromColor[i];
+          else
+            isFilled = false;
         }
+        if (isFilled)
+          this.wowSettings.step = 5;
         break;
       case 5:
         let vector = {x: mouse.x - (this.offsetX + this.pupilOffsetX), y: mouse.y - (this.offsetY + this.pupilOffsetY)};
@@ -244,8 +258,11 @@ export default class Eye {
   unwow() {
     this.wowSettings.isHovered = false;
     this.pupilSpeed = {x: 0, y: 0};
-    if (this.wowSettings.step === 3 || this.wowSettings.step === 2)
+    if (this.wowSettings.step === 3 || this.wowSettings.step === 2) {
+      for (let i = 0; i < 3; i++)
+        this.wowSettings.speed.color[i] = (this.wowSettings.fromColor[i] - this.wowSettings.toColor[i]) / this.timeChangeColor;
       this.wowSettings.step = 4;
+    }
     if (this.wowSettings.step === 1)
       this.wowSettings.step = 5;
   }
@@ -278,5 +295,26 @@ export default class Eye {
       this.offsetToCenterY + this.localCenterY
     );
     ctx.closePath();
+  }
+
+  setParam(param, value) {
+    switch (param) {
+      case 'eyeSection':
+        this.eyeSection = value;
+        this.checkpointDeviation = this.sizeX * 0.5 * value;
+        break;
+      case 'pupilDeviation':
+        this.pupilDeviation = value;
+        this.ellipsW = this.sizeX * 0.5 * value;
+        this.ellipsH = this.sizeY * 0.5 * value;
+        break;
+      case 'timeOfWink':
+        this.winkSettings.time = value / 2;
+        this.winkSettings.speed = this.winkSettings.openingEye / this.winkSettings.time;
+        break;
+      case 'wowColor':
+        this.wowSettings.toColor = value;
+        break;
+    }
   }
 }

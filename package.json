@@ -62,5 +62,8 @@
     "webpack-glsl-loader": "^1.0.1",
     "require-yaml": "^0.0.1",
     "lodash": "^4.3.0"
+  },
+  "dependencies": {
+    "dat.gui": "^0.7.6"
   }
 }
