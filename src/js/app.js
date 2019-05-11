@@ -18,9 +18,12 @@ let Eyes = function() {
   const canvas = document.getElementById('eyes'),
     ctx = canvas.getContext('2d'),
     canvasSizes = {w: window.innerWidth, h: window.innerHeight};
-
-  canvas.width = canvasSizes.w;
-  canvas.height = canvasSizes.h;
+  console.log(window.devicePixelRatio);
+  canvas.width = canvasSizes.w * window.devicePixelRatio;
+  canvas.height = canvasSizes.h * window.devicePixelRatio;
+  canvas.style.width = `${canvasSizes.w}px`;
+  canvas.style.height = `${canvasSizes.h}px`;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
   const defaultSizes = {x: 110, y: 50};
   this.space = 0.6;
